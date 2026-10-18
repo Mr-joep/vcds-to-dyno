@@ -213,22 +213,23 @@
     return chart;
   }
 
-  // Picks matching tick steps for power and torque so both axes share gridlines.
   function niceStep(raw) {
     const mag = Math.pow(10, Math.floor(Math.log10(raw)));
     const f = raw / mag;
     return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * mag;
   }
-  function alignedAxes(maxA, maxB) {
+
+  // Power and torque share one numeric scale, like a classic dyno sheet. Because power
+  // is derived from torque, the curves then always cross where the numbers are equal
+  // (5,252 rpm for HP and lb-ft) instead of wherever two independent axes happen to land.
+  function sharedAxis(maxValue) {
     let best = null;
-    for (let n = 4; n <= 8; n++) {
-      const sa = niceStep((maxA * 1.08) / n);
-      const sb = niceStep((maxB * 1.08) / n);
-      const waste = (sa * n) / maxA + (sb * n) / maxB;
-      if (!best || waste < best.waste - 1e-9) best = { n, sa, sb, waste };
+    for (let n = 5; n <= 8; n++) {
+      const step = niceStep((maxValue * 1.08) / n);
+      if (!best || step * n < best.max) best = { max: step * n, step };
     }
-    return { a: { max: best.sa * best.n, step: best.sa }, b: { max: best.sb * best.n, step: best.sb } };
+    return best;
   }
 
-  root.DynoChart = { token, tooltipTheme, axisTheme, createDynoChart, createOverviewChart, alignedAxes };
+  root.DynoChart = { token, tooltipTheme, axisTheme, createDynoChart, createOverviewChart, sharedAxis };
 })(window);

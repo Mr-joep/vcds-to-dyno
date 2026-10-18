@@ -315,20 +315,15 @@
     const o = dyno.config.options;  // raw config; chart.options is a resolver proxy
     const x = o.scales.x, yP = o.scales.yPower, yT = o.scales.yTorque;
 
-    if (hasData) {
-      const ax = C.alignedAxes(maxP || 1, maxT || 1);
-      yP.max = ax.a.max; yP.ticks = { stepSize: ax.a.step };
-      yT.max = ax.b.max; yT.ticks = { stepSize: ax.b.step };
-      x.min = Math.floor(minR / 500) * 500;
-      x.max = Math.ceil(maxR / 500) * 500;
-    } else {
-      // An empty sheet still shows a believable grid.
-      const ax = C.alignedAxes(150 * D.POWER_UNITS.ps.divisor / pu.divisor, 250 * tu.factor);
-      yP.max = ax.a.max; yP.ticks = { stepSize: ax.a.step };
-      yT.max = ax.b.max; yT.ticks = { stepSize: ax.b.step };
-      x.min = 1000;
-      x.max = 7000;
-    }
+    // Both y axes get the same range; an empty sheet still shows a believable grid.
+    const ax = C.sharedAxis(hasData
+      ? Math.max(maxP, maxT, 1)
+      : Math.max(150 * D.POWER_UNITS.ps.divisor / pu.divisor, 250 * tu.factor));
+    yP.max = yT.max = ax.max;
+    yP.ticks = { stepSize: ax.step };
+    yT.ticks = { stepSize: ax.step };
+    x.min = hasData ? Math.floor(minR / 500) * 500 : 1000;
+    x.max = hasData ? Math.ceil(maxR / 500) * 500 : 7000;
     const xRange = x.max - x.min;
     x.ticks = { maxRotation: 0, stepSize: xRange <= 2500 ? 250 : xRange <= 6000 ? 500 : 1000, callback: v => fmt0.format(v) };
 
