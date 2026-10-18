@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VCDS Dyno</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M5 23a11 11 0 1 1 22 0' fill='none' stroke='%232a78d6' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M16 23l6-8' stroke='%23eb6834' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 23a11 11 0 1 1 22 0" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><path d="M16 23l6-8" stroke="var(--series-2)" stroke-width="2.5" stroke-linecap="round"/></svg>
+      <span>VCDS Dyno</span>
+    </div>
+    <p class="tagline">Turn VCDS measuring-value logs into a dyno sheet</p>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <label class="dropzone" id="dropzone">
+        <input type="file" id="file-input" accept=".csv,text/csv" multiple>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5l5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <strong>Drop VCDS logs here</strong>
+        <span>or click to browse &middot; .csv &middot; up to 8 runs</span>
+      </label>
+      <p class="message" id="message" role="status" aria-live="polite" hidden></p>
+
+      <section aria-labelledby="runs-title">
+        <h2 class="section-title" id="runs-title">Runs</h2>
+        <ul class="run-list" id="run-list"></ul>
+        <p class="empty-hint" id="runs-empty">No logs loaded yet.</p>
+      </section>
+
+      <details class="tips">
+        <summary>How to log a pull in VCDS</summary>
+        <ol>
+          <li>Open <b>01-Engine</b> &rarr; <b>Advanced Measuring Values</b>.</li>
+          <li>Select only <b>Engine speed</b> and <b>Engine torque</b>. Fewer values means a faster sample rate and a smoother curve.</li>
+          <li>Click <b>Log</b> and then <b>Start</b>.</li>
+          <li>In 3rd gear, go to full throttle from about 1,500&nbsp;rpm up to just below the limiter, then lift off.</li>
+          <li>Stop the log and drop the .csv file here.</li>
+        </ol>
+        <p>Only do this somewhere it is safe and legal, like a closed road or a track.</p>
+      </details>
+    </aside>
+
+    <section class="content">
+      <div class="toolbar" role="group" aria-label="Sheet settings">
+        <div class="field">
+          <span class="field-label" id="lbl-power">Power</span>
+          <div class="segmented" data-setting="powerUnit" role="group" aria-labelledby="lbl-power">
+            <button type="button" data-value="hp">HP</button>
+            <button type="button" data-value="ps">PS</button>
+            <button type="button" data-value="kw">kW</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-label" id="lbl-torque">Torque</span>
+          <div class="segmented" data-setting="torqueUnit" role="group" aria-labelledby="lbl-torque">
+            <button type="button" data-value="nm">Nm</button>
+            <button type="button" data-value="lbft">lb-ft</button>
+          </div>
+        </div>
+        <label class="field">
+          <span class="field-label">Smoothing <output id="smooth-out"></output></span>
+          <input type="range" id="smooth" min="0" max="8" step="1">
+        </label>
+        <label class="field">
+          <span class="field-label">RPM step</span>
+          <select id="bin">
+            <option value="50">50 rpm</option>
+            <option value="100">100 rpm</option>
+            <option value="250">250 rpm</option>
+          </select>
+        </label>
+        <div class="field">
+          <span class="field-label">Show</span>
+          <div class="checks">
+            <label><input type="checkbox" id="show-power"> Power</label>
+            <label><input type="checkbox" id="show-torque"> Torque</label>
+            <label><input type="checkbox" id="show-peaks"> Peaks</label>
+          </div>
+        </div>
+        <button type="button" class="btn primary" id="save-png" disabled>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Save PNG
+        </button>
+      </div>
+
+      <article class="sheet" id="sheet">
+        <header class="sheet-head">
+          <div class="sheet-title" id="sheet-title" contenteditable="true" spellcheck="false" role="textbox" aria-label="Sheet title" data-placeholder="Dyno sheet"></div>
+          <div class="sheet-notes" id="sheet-notes" contenteditable="true" spellcheck="false" role="textbox" aria-label="Notes" data-placeholder="Car, mods, fuel, conditions"></div>
+        </header>
+        <div class="chart-wrap">
+          <canvas id="dyno-chart" role="img" aria-label="Power and torque against engine speed. Values are listed in the data table below."></canvas>
+          <div class="chart-empty" id="chart-empty">Drop a VCDS log to draw the curves</div>
+        </div>
+        <div class="sheet-key" id="sheet-key">
+          <span><i class="key-line solid"></i>Power</span>
+          <span><i class="key-line dashed"></i>Torque</span>
+        </div>
+        <table class="peaks" id="peaks">
+          <thead><tr><th>Run</th><th>Max power</th><th>Max torque</th><th>Source</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <footer class="sheet-foot">
+          <span>Power is calculated from the torque the ECU reports. It is not measured on a dyno.</span>
+          <span id="sheet-settings"></span>
+        </footer>
+      </article>
+
+      <section class="panel" id="overview" hidden>
+        <div class="panel-head">
+          <h2 class="section-title">Log overview <span class="muted" id="overview-run"></span></h2>
+          <div class="overview-controls">
+            <label>From <input type="number" id="win-start" step="0.1" min="0" inputmode="decimal"> s</label>
+            <label>to <input type="number" id="win-end" step="0.1" min="0" inputmode="decimal"> s</label>
+            <button type="button" class="btn" id="auto-pull">Auto-detect pull</button>
+            <button type="button" class="btn" id="whole-log">Whole log</button>
+          </div>
+        </div>
+        <p class="hint">Drag across the chart to choose which part of the log is used for the dyno sheet.</p>
+        <div class="overview-wrap"><canvas id="overview-chart" role="img" aria-label="Engine speed and torque over time for the selected run"></canvas></div>
+      </section>
+
+      <details class="panel data-panel" id="data-panel" hidden>
+        <summary>Data table</summary>
+        <div class="table-scroll"><table class="data-table" id="data-table"></table></div>
+      </details>
+    </section>
+  </main>
+
+  <div class="drop-overlay" id="drop-overlay" hidden><div>Drop to add logs</div></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/process.js"></script>
+  <script src="js/dyno-chart.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
